@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masterfonds Rekenmodel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #1e3a5f;
+    --navy-dark: #142a47;
+    --gold: #c9a84c;
+    --gold-light: #f0d98a;
+    --bg: #f2f5f9;
+    --card: #ffffff;
+    --border: #dde3ed;
+    --text: #1a2d4a;
+    --muted: #6b7c99;
+    --positive: #2a7d4f;
+    --negative: #b02020;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%);
+    color: white;
+    padding: 20px 32px 18px;
+    border-bottom: 3px solid var(--gold);
+  }
+  header h1 { font-size: 16px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  header p { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 20px 40px; }
+
+  .section-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); margin-bottom: 10px;
+  }
+
+  /* PRODUCT CARDS */
+  .products-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) { .products-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .products-grid { grid-template-columns: 1fr; } }
+
+  .product-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    transition: box-shadow 0.15s;
+  }
+  .product-card:hover { box-shadow: 0 2px 12px rgba(30,58,95,0.1); }
+
+  .product-name {
+    font-size: 12px; font-weight: 700; color: var(--navy);
+    padding-bottom: 8px; margin-bottom: 12px;
+    border-bottom: 2px solid var(--gold);
+  }
+  .product-fixed {
+    font-size: 10px; color: var(--muted); margin-bottom: 10px;
+    background: #f7f9fc; padding: 6px 8px; border-radius: 4px;
+    line-height: 1.7;
+  }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .field input, .field select {
+    width: 100%; padding: 6px 8px;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-size: 12px; color: var(--text); background: #f9fbfd;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: var(--navy); background: white;
+  }
+
+  /* METRICS */
+  .metrics-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 700px) { .metrics-row { grid-template-columns: 1fr 1fr; } }
+
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .metric-card.primary {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: white;
+  }
+  .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .metric-card.primary .metric-label { color: rgba(255,255,255,0.6); }
+  .metric-value { font-size: 24px; font-weight: 700; color: var(--navy); margin-top: 2px; }
+  .metric-card.primary .metric-value { color: var(--gold); }
+
+  /* CHART */
+  .chart-wrap {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px;
+    margin-bottom: 24px;
+  }
+
+  /* PER-PRODUCT METRICS */
+  .product-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) { .product-metrics { grid-template-columns: repeat(2, 1fr); } }
+
+  .pm-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px;
+  }
+  .pm-name { font-size: 11px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+  .pm-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px;
+  }
+  .pm-row .pm-l { font-size: 10px; color: var(--muted); }
+  .pm-row .pm-v { font-size: 11px; font-weight: 700; color: var(--text); }
+  .pm-row .pm-v.pos { color: var(--positive); }
+  .pm-empty { font-size: 11px; color: var(--muted); font-style: italic; }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; overflow-x: auto;
+    margin-bottom: 24px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 900px; }
+  thead th {
+    background: var(--navy); color: white;
+    padding: 8px 10px; text-align: right; font-weight: 600;
+    white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; min-width: 200px; }
+  tbody tr { border-bottom: 1px solid #edf0f6; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 6px 10px; text-align: right; white-space: nowrap; }
+  tbody td:first-child { text-align: left; color: var(--muted); font-size: 10px; padding-left: 14px; }
+  tbody tr.section-head td {
+    background: #edf1f8; font-weight: 700; color: var(--navy);
+    font-size: 11px; padding: 7px 10px;
+  }
+  tbody tr.section-head td:first-child { padding-left: 14px; }
+  tbody td.neg { color: var(--negative); }
+  tbody td.zero { color: #bbb; }
+
+  .disclaimer {
+    font-size: 10px; color: var(--muted); text-align: center;
+    padding-top: 8px; border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Indicatief Rekenmodel — Masterfonds</h1>
+  <p>Bereken indicatieve rendementen op basis van de ingevoerde parameters. Dit is een indicatief model en geen garantie op rendement.</p>
+</header>
+
+<main>
+
+  <!-- Product Inputs -->
+  <div class="section-label">Productinstellingen</div>
+  <div class="products-grid" id="productsGrid"></div>
+
+  <!-- Combined Metrics -->
+  <div class="section-label">Gecombineerde portfolio — resultaten</div>
+  <div class="metrics-row" id="metricsRow"></div>
+
+  <!-- Chart -->
+  <div class="chart-wrap">
+    <canvas id="chart" height="65"></canvas>
+  </div>
+
+  <!-- Per-product breakdown -->
+  <div class="section-label">Resultaten per product</div>
+  <div class="product-metrics" id="productMetrics"></div>
+
+  <!-- Year table -->
+  <div class="section-label">Jaar-op-jaar overzicht (gecombineerd portfolio)</div>
+  <div class="table-wrap">
+    <table id="yearTable"></table>
+  </div>
+
+  <p class="disclaimer">* Dit model is uitsluitend indicatief. Rendementen zijn gebaseerd op aannames na beheerkosten en gelden niet als garantie. Raadpleeg altijd het betreffende prospectus.</p>
+</main>
+
+<script>
+// ─── Product definitions ────────────────────────────────────────────────────
+const PRODUCTS = [
+  {
+    id: 'pe', name: 'Private Equity',
+    defInleg: 250000, defPct: 1.0, defExit: 10,
+    rendement: 0.12, emissie: 0.03,
+    discountFn: y => y >= 10 ? 0 : y >= 5 ? 0.05 : 0.10,
+    rendementFn: null,
+    color: '#1e3a5f',
+  },
+  {
+    id: 'ng', name: 'NextGen',
+    defInleg: 250000, defPct: 0.5, defExit: 10,
+    rendement: 0.12, emissie: 0,
+    discountFn: y => y >= 10 ? 0 : y >= 5 ? 0.05 : 0.10,
+    rendementFn: null,
+    color: '#c9a84c',
+  },
+  {
+    id: 'inf', name: 'Infrastructure',
+    defInleg: 0, defPct: 1.0, defExit: 10,
+    rendement: 0.11, emissie: 0.03,
+    discountFn: y => y >= 10 ? 0 : y >= 5 ? 0.05 : 0.10,
+    rendementFn: null,
+    color: '#5e9bd1',
+  },
+  {
+    id: 'pc', name: 'Private Credit',
+    defInleg: 0, defPct: 1.0, defExit: 5,
+    rendement: 0.07, emissie: 0.03,
+    discountFn: y => y >= 5 ? 0 : y >= 3 ? 0.02 : 0.05,
+    rendementFn: null,
+    color: '#7ec87e',
+  },
+  {
+    id: 'pref', name: 'Preferente Participaties',
+    defInleg: 100000, defPct: 1.0, defExit: 6,
+    rendement: null, emissie: 0.005,
+    discountFn: () => 0,
+    rendementFn: y => y >= 8 ? 0.06 : y >= 5 ? 0.05 : 0.04,
+    color: '#e8765a',
+  },
+];
+
+// ─── XIRR ───────────────────────────────────────────────────────────────────
+function xirr(cashflows) {
+  // years are 0..12, equally spaced by 1 year
+  let r = 0.10;
+  for (let i = 0; i < 300; i++) {
+    let f = 0, df = 0;
+    for (let t = 0; t < cashflows.length; t++) {
+      const cf = cashflows[t];
+      if (cf === 0) continue;
+      f  += cf / Math.pow(1 + r, t);
+      df -= t * cf / Math.pow(1 + r, t + 1);
+    }
+    if (Math.abs(df) < 1e-14) break;
+    const rNew = r - f / df;
+    if (Math.abs(rNew - r) < 1e-10) { r = rNew; break; }
+    r = Math.max(-0.9999, Math.min(50, rNew));
+  }
+  return r;
+}
+
+// ─── Per-product year-by-year calculation ────────────────────────────────────
+function calcProduct(inleg, pctDiv, exitYear, rendement, emissie, discount) {
+  const N = 13;
+  const wb = [], stor = [], div = [], reinv = [], ret = [], evv = [], vk = [], ena = [], cf = [];
+
+  for (let t = 0; t < N; t++) {
+    const prev = t > 0 ? ena[t-1] : 0;
+
+    wb[t]   = t === 0 ? 0 : prev;
+    stor[t] = t === 0 ? inleg : 0;
+    div[t]  = t === 0 ? 0 : prev * -rendement;        // negative (outflow from portfolio)
+    reinv[t]= t === 0 ? 0 : -div[t] * pctDiv;         // positive (back into portfolio)
+    ret[t]  = t === 0 ? 0 : wb[t] * rendement;
+
+    evv[t] = wb[t] + stor[t] + div[t] + reinv[t] + ret[t];
+    vk[t]  = t === 0 ? 0 : -evv[t] * (exitYear === t ? 1 : 0);
+    ena[t] = evv[t] + vk[t];
+
+    cf[t] = t === 0
+      ? -inleg * (1 + emissie)
+      : -div[t] * (1 - pctDiv) - vk[t] * (1 - discount);
+  }
+
+  return { wb, stor, div, reinv, ret, evv, vk, ena, cf };
+}
+
+// ─── Render product input cards ──────────────────────────────────────────────
+function renderInputs() {
+  const grid = document.getElementById('productsGrid');
+  grid.innerHTML = PRODUCTS.map(p => {
+    const ren = p.rendementFn
+      ? `${(p.rendementFn(p.defExit)*100).toFixed(0)}%*`
+      : `${(p.rendement*100).toFixed(0)}%`;
+    return `
+    <div class="product-card">
+      <div class="product-name">${p.name}</div>
+      <div class="product-fixed">
+        Rendement (na fee): <strong>${ren}</strong><br>
+        Emissiekosten: <strong>${(p.emissie*100).toFixed(1)}%</strong>
+      </div>
+      <div class="field">
+        <label>Inleg (€)</label>
+        <input type="number" id="${p.id}_inleg" value="${p.defInleg}" min="0" step="10000" oninput="recalc()">
+      </div>
+      <div class="field">
+        <label>Dividend hereinvestering</label>
+        <select id="${p.id}_pct" onchange="recalc()">
+          <option value="0"   ${p.defPct===0   ?'selected':''}>0% — niet herinvesteren</option>
+          <option value="0.5" ${p.defPct===0.5 ?'selected':''}>50% — gedeeltelijk</option>
+          <option value="1"   ${p.defPct===1   ?'selected':''}>100% — volledig</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Uitstappen in jaar</label>
+        <select id="${p.id}_exit" onchange="recalc()">
+          ${Array.from({length:12},(_,i)=>i+1).map(y=>`<option value="${y}" ${y===p.defExit?'selected':''}>${y} (${2023+y})</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Main recalc ─────────────────────────────────────────────────────────────
+let chartInst = null;
+
+function recalc() {
+  // Read inputs
+  const inputs = PRODUCTS.map(p => ({
+    ...p,
+    inleg:    parseFloat(document.getElementById(`${p.id}_inleg`).value) || 0,
+    pctDiv:   parseFloat(document.getElementById(`${p.id}_pct`).value),
+    exitYear: parseInt(document.getElementById(`${p.id}_exit`).value),
+  }));
+
+  // Calculate each product
+  const results = inputs.map(p => {
+    const rendement = p.rendementFn ? p.rendementFn(p.exitYear) : p.rendement;
+    const discount  = p.discountFn(p.exitYear);
+    const data = calcProduct(p.inleg, p.pctDiv, p.exitYear, rendement, p.emissie, discount);
+    const totalInv = p.inleg * (1 + p.emissie);
+    const totalRec = data.cf.slice(1).reduce((a,b)=>a+b,0);
+    const mm  = totalInv > 0 ? totalRec / totalInv : null;
+    const irr = p.inleg  > 0 ? xirr(data.cf) : null;
+    return { ...p, data, mm, irr, rendement, discount };
+  });
+
+  // Combined cashflows and portfolio
+  const combinedCF  = Array.from({length:13}, (_,t) => results.reduce((s,r)=>s+r.data.cf[t],0));
+  const combinedEna = Array.from({length:13}, (_,t) => results.reduce((s,r)=>s+r.data.ena[t],0));
+
+  // Cumulative value (portfolio + received cashflows since year 1)
+  const cumulative = [];
+  let cumCF = 0;
+  for (let t = 0; t < 13; t++) {
+    if (t > 0) cumCF += combinedCF[t];
+    cumulative[t] = combinedEna[t] + cumCF;
+  }
+
+  const totalInvested = results.reduce((s,r)=>s+r.inleg*(1+r.emissie),0);
+  const totalReceived = combinedCF.slice(1).reduce((a,b)=>a+b,0);
+  const totalInleg    = results.reduce((s,r)=>s+r.inleg,0);
+  const combinedMM    = totalInvested > 0 ? totalReceived / totalInvested : 0;
+  const combinedIRR   = totalInvested > 0 ? xirr(combinedCF) : 0;
+
+  // ── Metrics ──
+  document.getElementById('metricsRow').innerHTML = `
+    <div class="metric-card primary">
+      <div class="metric-label">IRR Gecombineerd</div>
+      <div class="metric-value">${fmt_pct(combinedIRR)}</div>
+    </div>
+    <div class="metric-card primary">
+      <div class="metric-label">MM Gecombineerd</div>
+      <div class="metric-value">${fmt_mm(combinedMM)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Totale inleg</div>
+      <div class="metric-value" style="font-size:18px">€${fmt_eur(totalInleg)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Totale ontvangsten</div>
+      <div class="metric-value" style="font-size:18px;color:var(--positive)">€${fmt_eur(totalReceived)}</div>
+    </div>`;
+
+  // ── Per-product metrics ──
+  document.getElementById('productMetrics').innerHTML = results.map(r => {
+    if (r.inleg === 0) return `
+      <div class="pm-card">
+        <div class="pm-name">${r.name}</div>
+        <div class="pm-empty">Geen inleg ingesteld</div>
+      </div>`;
+    return `
+      <div class="pm-card">
+        <div class="pm-name">${r.name}</div>
+        <div class="pm-row"><span class="pm-l">IRR</span><span class="pm-v pos">${r.irr!=null?fmt_pct(r.irr):'—'}</span></div>
+        <div class="pm-row"><span class="pm-l">MM</span><span class="pm-v pos">${r.mm!=null?fmt_mm(r.mm):'—'}</span></div>
+        <div class="pm-row"><span class="pm-l">Rendement</span><span class="pm-v">${(r.rendement*100).toFixed(0)}%</span></div>
+        <div class="pm-row"><span class="pm-l">Discount verkoop</span><span class="pm-v">${(r.discount*100).toFixed(0)}%</span></div>
+        <div class="pm-row"><span class="pm-l">Uitstap jaar</span><span class="pm-v">Jaar ${r.exitYear} (${2023+r.exitYear})</span></div>
+      </div>`;
+  }).join('');
+
+  // ── Chart ──
+  const labels = Array.from({length:13},(_,i)=>`Jaar ${i}`);
+  const productDatasets = results
+    .filter(r => r.inleg > 0)
+    .map(r => ({
+      label: r.name,
+      data: r.data.ena,
+      borderColor: r.color,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: [4, 3],
+      pointRadius: 2,
+      tension: 0.2,
+    }));
+
+  if (chartInst) chartInst.destroy();
+  chartInst = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Cumulatieve waarde portfolio',
+          data: cumulative,
+          borderColor: '#1e3a5f',
+          backgroundColor: 'rgba(30,58,95,0.07)',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          fill: true,
+          tension: 0.2,
+        },
+        ...productDatasets,
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 16 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: €${fmt_eur(Math.round(ctx.raw))}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: { callback: v => '€' + fmt_eur(v), font: { size: 10 } },
+          grid: { color: '#edf0f6' },
+        },
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // ── Year-by-year table ──
+  // Sum rows
+  const sumRow = (key) => Array.from({length:13}, (_,t) => results.reduce((s,r)=>s+r.data[key][t],0));
+  const rows = [
+    { label: 'Waarde begin jaar',                vals: sumRow('wb'),   section: false },
+    { label: 'Storting',                          vals: sumRow('stor'), section: false },
+    { label: 'Dividenduitkering',                 vals: sumRow('div'),  section: false },
+    { label: 'Herinvestering dividend',           vals: sumRow('reinv'),section: false },
+    { label: 'Rendement in jaar',                 vals: sumRow('ret'),  section: false },
+    { label: 'Waarde einde jaar (vóór verkoop)',  vals: sumRow('evv'),  section: true  },
+    { label: 'Verkoop',                           vals: sumRow('vk'),   section: false },
+    { label: 'Waarde einde jaar (ná verkoop)',    vals: combinedEna,    section: true  },
+    { label: 'Cashflow IRR',                      vals: combinedCF,     section: false },
+    { label: 'Cumulatieve waarde',                vals: cumulative,     section: true  },
+  ];
+
+  const yearHeaders = Array.from({length:13},(_,i)=>`<th>${i===0?'2023':(2023+i)}</th>`).join('');
+  document.getElementById('yearTable').innerHTML = `
+    <thead>
+      <tr><th></th>${yearHeaders}</tr>
+    </thead>
+    <tbody>
+      ${rows.map(row => {
+        const tdClass = row.section ? 'section-head' : '';
+        const cells = row.vals.map(v => {
+          if (typeof v !== 'number') return `<td>${v}</td>`;
+          if (v === 0) return `<td class="zero">—</td>`;
+          if (v < 0) return `<td class="neg">(€${fmt_eur(Math.round(Math.abs(v)))})</td>`;
+          return `<td>€${fmt_eur(Math.round(v))}</td>`;
+        }).join('');
+        return `<tr class="${tdClass}"><td>${row.label}</td>${cells}</tr>`;
+      }).join('')}
+    </tbody>`;
+}
+
+// ─── Formatters ──────────────────────────────────────────────────────────────
+function fmt_eur(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Math.round(Math.abs(n)).toLocaleString('nl-NL');
+}
+function fmt_pct(r) {
+  if (r == null || isNaN(r)) return '—';
+  return (r * 100).toFixed(1) + '%';
+}
+function fmt_mm(m) {
+  if (m == null || isNaN(m)) return '—';
+  return m.toFixed(2) + 'x';
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+renderInputs();
+recalc();
+</script>
+</body>
+</html>
